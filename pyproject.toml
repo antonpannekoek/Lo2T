@@ -1,0 +1,17 @@
+[project]
+name = "Lo2T"
+version = "2025.1.0"
+dependencies = [
+]
+requires-python = ">=3.8"
+authors = [
+  {name = "Steven Rieder", email="s.rieder@uva.nl"}
+]
+description = "LOFAR 2.0 triggering software"
+license = {text = "MIT License"}
+keywords = ["radioastronomy", "astronomy", "radio", "LOFAR", "triggering"]
+readme = "README.md"
+
+[project.urls]
+Repository = "https://github.com/antonpannekoek/Lo2T"
+Issues = "https://github.com/antonpannekoek/Lo2T/issues"
