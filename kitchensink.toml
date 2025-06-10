@@ -1,0 +1,121 @@
+# Configuration file for Lo2T
+# https://github.com/antonpannekoek/Lo2T
+# Does not include credentials and should not include these!
+# Includes many of the most common alerts, both voevent and json type
+
+[gcn]
+subscriptions = [
+    "gcn.circulars",  # 8 per day
+    # "gcn.heartbeat",  # 1 per second
+    "gcn.notices.icecube.lvk_nu_track_search",  # 9 per day
+    "igwn.gwalert",  # 4 per hour
+    "gcn.notices.swift.bat.guano",  # < 1 per week
+    "gcn.notices.einstein_probe.wxt.alert",  # 2 per week
+    'gcn.classic.voevent.FERMI_GBM_ALERT',
+    'gcn.classic.voevent.FERMI_GBM_FIN_POS',
+    'gcn.classic.voevent.FERMI_GBM_FLT_POS',
+    'gcn.classic.voevent.FERMI_GBM_GND_POS',
+    #'gcn.classic.voevent.FERMI_GBM_LC',
+    'gcn.classic.voevent.FERMI_GBM_POS_TEST',
+    'gcn.classic.voevent.FERMI_GBM_SUBTHRESH',
+    #'gcn.classic.voevent.FERMI_GBM_TRANS',
+    #'gcn.classic.voevent.FERMI_LAT_GND',
+    'gcn.classic.voevent.FERMI_LAT_MONITOR',
+    'gcn.classic.voevent.FERMI_LAT_OFFLINE',
+    #'gcn.classic.voevent.FERMI_LAT_POS_DIAG',
+    #'gcn.classic.voevent.FERMI_LAT_POS_INI',
+    'gcn.classic.voevent.FERMI_LAT_POS_TEST',
+    #'gcn.classic.voevent.FERMI_LAT_POS_UPD',
+    #'gcn.classic.voevent.FERMI_LAT_TRANS',
+    'gcn.classic.voevent.FERMI_POINTDIR',
+    #'gcn.classic.voevent.FERMI_SC_SLEW',
+    'gcn.classic.voevent.SWIFT_ACTUAL_POINTDIR',
+    #'gcn.classic.voevent.SWIFT_BAT_ALARM_LONG',
+    #'gcn.classic.voevent.SWIFT_BAT_ALARM_SHORT',
+    #'gcn.classic.voevent.SWIFT_BAT_GRB_ALERT',
+    'gcn.classic.voevent.SWIFT_BAT_GRB_LC',
+    #'gcn.classic.voevent.SWIFT_BAT_GRB_LC_PROC',
+    'gcn.classic.voevent.SWIFT_BAT_GRB_POS_ACK',
+    #'gcn.classic.voevent.SWIFT_BAT_GRB_POS_NACK',
+    'gcn.classic.voevent.SWIFT_BAT_GRB_POS_TEST',
+    #'gcn.classic.voevent.SWIFT_BAT_KNOWN_SRC',
+    #'gcn.classic.voevent.SWIFT_BAT_MONITOR',
+    'gcn.classic.voevent.SWIFT_BAT_QL_POS',
+    'gcn.classic.voevent.SWIFT_BAT_SCALEDMAP',
+    #'gcn.classic.voevent.SWIFT_BAT_SLEW_POS',
+    #'gcn.classic.voevent.SWIFT_BAT_SUB_THRESHOLD',
+    #'gcn.classic.voevent.SWIFT_BAT_SUBSUB',
+    'gcn.classic.voevent.SWIFT_BAT_TRANS',
+    'gcn.classic.voevent.SWIFT_FOM_OBS',
+    #'gcn.classic.voevent.SWIFT_FOM_PPT_ARG_ERR',
+    #'gcn.classic.voevent.SWIFT_FOM_SAFE_POINT',
+    #'gcn.classic.voevent.SWIFT_FOM_SLEW_ABORT',
+    'gcn.classic.voevent.SWIFT_POINTDIR',
+    'gcn.classic.voevent.SWIFT_SC_SLEW',
+    'gcn.classic.voevent.SWIFT_TOO_FOM',
+    'gcn.classic.voevent.SWIFT_TOO_SC_SLEW',
+    'gcn.classic.voevent.SWIFT_UVOT_DBURST',
+    'gcn.classic.voevent.SWIFT_UVOT_DBURST_PROC',
+    'gcn.classic.voevent.SWIFT_UVOT_EMERGENCY',
+    'gcn.classic.voevent.SWIFT_UVOT_FCHART',
+    'gcn.classic.voevent.SWIFT_UVOT_FCHART_PROC',
+    'gcn.classic.voevent.SWIFT_UVOT_POS',
+    'gcn.classic.voevent.SWIFT_UVOT_POS_NACK',
+    'gcn.classic.voevent.SWIFT_XRT_CENTROID',
+    #'gcn.classic.voevent.SWIFT_XRT_EMERGENCY',
+    'gcn.classic.voevent.SWIFT_XRT_IMAGE',
+    'gcn.classic.voevent.SWIFT_XRT_IMAGE_PROC',
+    'gcn.classic.voevent.SWIFT_XRT_LC',
+    'gcn.classic.voevent.SWIFT_XRT_POSITION',
+    'gcn.classic.voevent.SWIFT_XRT_SPECTRUM',
+    'gcn.classic.voevent.SWIFT_XRT_SPECTRUM_PROC',
+    'gcn.classic.voevent.SWIFT_XRT_SPER',
+    'gcn.classic.voevent.SWIFT_XRT_SPER_PROC',
+    'gcn.classic.voevent.SWIFT_XRT_THRESHPIX',
+    'gcn.classic.voevent.SWIFT_XRT_THRESHPIX_PROC',
+    'gcn.notices.svom.voevent.grm',
+    'gcn.notices.svom.voevent.eclairs',
+    'gcn.notices.svom.voevent.mxt'
+]
+
+[gcn.credentials]
+client_id = ""
+client_secret = ""
+
+[gcn.circulars]
+# Circulars
+message_type = "json"
+limit = 4
+
+[gcn.heartbeat]
+# Heartbeat
+message_type = "json"
+limit = 10
+
+[gcn.notices.icecube.lvk_nu_track_search]
+# IceCube
+message_type = "json"
+limit = 4
+
+[gcn.notices.einstein_probe.wxt.alert]
+# Einstein Probe
+message_type = "json"
+limit = 4
+
+[gcn.notices.swift.bat.guano]
+# Swift
+message_type = "json"
+limit = 4
+
+[igwn.gwalert]
+# LVK
+message_type = "json"
+limit = 4
+
+[gcn.classic.voevent]
+message_type = "voevent"
+limit = 4
+
+[gcn.notices.svom.voevent]
+message_type = "voevent"
+limit = 4
