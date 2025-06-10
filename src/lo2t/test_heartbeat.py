@@ -3,6 +3,7 @@ Test heartbeat kafka messages by plotting a dot for each heartbeat received
 """
 
 import json
+import tomllib
 from gcn_kafka import Consumer
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
@@ -14,7 +15,14 @@ import numpy as np
 
 # Connect as a consumer
 # Warning: don't share the client secret with others.
-from .credentials import client_id, client_secret
+# client_id and client_secret are stored in a local toml file
+# "credentials.toml"
+with open("credentials.toml", "rb") as f:
+    config = tomllib.load(f)
+    credentials = config["credentials"]
+    client_id = credentials["client_id"]
+    client_secret = credentials["client_secret"]
+
 
 consumer = Consumer(
     client_id=client_id,
