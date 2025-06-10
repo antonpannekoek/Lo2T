@@ -45,6 +45,7 @@ class GcnNotices:
         self.consumer = None
         self.notice_counter = {}
         self.notice_limit = {}
+        self.notice_type = {}
         self.messages = []
         self.config = self.load_config(configfile)
 
@@ -60,9 +61,17 @@ class GcnNotices:
         self.__client_secret = credentials["client_secret"]
         for subscription in self.subscriptions:
             self.notice_counter[subscription] = 0
-            self.notice_limit[subscription] = get_nested_value(
-                config, subscription.split(".")
-            )["limit"]
+            try:
+                subscription_config = get_nested_value(
+                    config, subscription.split(".")
+                )
+            except KeyError:  # in case of nested config
+                subscription_config = get_nested_value(
+                    config, subscription.split(".")[:-1]
+                )
+            self.notice_limit[subscription] = subscription_config["limit"]
+            self.notice_type[subscription] = subscription_config["message_type"]
+
             print(f"Listening for {subscription} notices")
         return config
 
@@ -111,11 +120,16 @@ class GcnNotices:
                 ):
                     # Print the topic and message ID
                     try:
-                        notice_time = self.extract_time(message)
+                        if self.notice_type[message.topic()] == "json":
+                            notice_time = self.extract_time(message)
+                        elif self.notice_type[message.topic()] == "voevent":
+                            print("not a json message, setting notice_time to current time")
+                            notice_time = datetime.datetime.now()
                     except KeyError:
                         print(f"No alert_datetime key in message of type {message.topic()}")
                         print("Setting notice_time to current time")
                         notice_time = datetime.datetime.now()
+
                     print(
                         f"topic={message.topic()}, offset={message.offset()}\n"
                         f"Received notice at {notice_time} of type {message.topic()}\n"
@@ -123,12 +137,25 @@ class GcnNotices:
                         f" out of {self.notice_limit[message.topic()]})"
                     )
                     # Save the message to a file
-                    filename = f"{message.topic()}_notice_{notice_time}.json"
-                    with open(
-                        filename,
-                        "w",
-                    ) as f:
-                        json.dump(json.loads(message.value()), f, indent=4)
+                    filename = f"{message.topic()}_notice_{notice_time}"
+                    filetype = self.notice_type[message.topic()]
+                    if filetype == "json":
+                        filename += ".json"
+                    elif filetype == "voevent":
+                        filename += ".voevent"
+
+                    if filetype == "json":
+                        with open(
+                            filename,
+                            "w",
+                        ) as f:
+                            json.dump(json.loads(message.value()), f, indent=4)
+                    elif filetype == "voevent":
+                        with open(
+                            filename,
+                            "wb",
+                        ) as f:
+                            f.write(message.value())
                     print(
                         f"Saved message to {filename}"
                     )
