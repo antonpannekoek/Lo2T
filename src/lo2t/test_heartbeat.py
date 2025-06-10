@@ -2,6 +2,7 @@
 Test heartbeat kafka messages by plotting a dot for each heartbeat received
 """
 
+import argparse
 import json
 import tomllib
 from gcn_kafka import Consumer
@@ -13,30 +14,32 @@ import dateutil.parser as dateparser
 import numpy as np
 
 
-# Connect as a consumer
-# Warning: don't share the client secret with others.
-# client_id and client_secret are stored in a local toml file
-# "credentials.toml"
-with open("credentials.toml", "rb") as f:
-    config = tomllib.load(f)
-    credentials = config["credentials"]
-    client_id = credentials["client_id"]
-    client_secret = credentials["client_secret"]
-
-
-consumer = Consumer(
-    client_id=client_id,
-    client_secret=client_secret,
-)
+def new_argument_parser():
+    """
+    Parse command line arguments and show defaults in help
+    """
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description="Test heartbeat kafka messages by plotting a dot for each message received"
+    )
+    parser.add_argument(
+        "-c",
+        "--credentials",
+        default="credentials.toml",
+        help="Path to credentials file",
+    )
+    return parser
 
 
 class Heartbeats:
     """
     Class for keeping track of heartbeats
     """
+
     def __init__(self):
         self.number_of_heartbeats = 0
         self.heartbeats = []
+        self.message_class = []
         self.scat = None
         self.fig = plt.figure(figsize=(10, 5))
         self.ax = self.fig.add_subplot(1, 1, 1)
@@ -55,7 +58,7 @@ class Heartbeats:
         time = dateparser.parse(data["alert_datetime"])
         self.add_heartbeat(time)
 
-    def add_heartbeat(self, datetime):
+    def add_heartbeat(self, datetime, message=None):
         """
         Add a heartbeat datapoint.
         datetime looks like this: 2025-06-10 09:06:19.208966+00:00
@@ -86,30 +89,54 @@ class Heartbeats:
         self.ax.set_ylim((0, self.number_of_heartbeats + 1))
 
 
-# Subscribe to topics and receive alerts
-consumer.subscribe(["gcn.heartbeat"])
-beats = Heartbeats()
+def test_heartbeat(credentialsfile):
+    # Connect as a consumer
+    # Warning: don't share the client secret with others.
+    # client_id and client_secret are stored in a local toml file
+    # "credentials.toml"
+    with open(credentialsfile, "rb") as f:
+        config = tomllib.load(f)
+        credentials = config["credentials"]
+        client_id = credentials["client_id"]
+        client_secret = credentials["client_secret"]
+
+    consumer = Consumer(
+        client_id=client_id,
+        client_secret=client_secret,
+    )
+
+    # Subscribe to topics and receive alerts
+    consumer.subscribe(["gcn.heartbeat"])
+    beats = Heartbeats()
+
+    def update(frame):
+        """
+        Update the figure with any new data received
+        """
+        print(f"Updating - frame {frame}")
+        for message in consumer.consume(timeout=1):
+            if message.error():
+                print(message.error())
+                continue
+            # Print the topic and message ID
+            print(f"topic={message.topic()}, offset={message.offset()}")
+            if message.topic() == "gcn.heartbeat":
+                beats.process_heartbeat(message)
+
+            beats.update_figure()
+            # for key in data:
+            #     print(key, data[key])
+
+    update(1)
+    anim = FuncAnimation(beats.fig, update, frames=None)
+    plt.show()
 
 
-def update(frame):
-    """
-    Update the figure with any new data received
-    """
-    print(f"Updating - frame {frame}")
-    for message in consumer.consume(timeout=1):
-        if message.error():
-            print(message.error())
-            continue
-        # Print the topic and message ID
-        print(f"topic={message.topic()}, offset={message.offset()}")
-        if message.topic() == "gcn.heartbeat":
-            beats.process_heartbeat(message)
-
-        beats.update_figure()
-        # for key in data:
-        #     print(key, data[key])
+def main():
+    parser = new_argument_parser()
+    args = parser.parse_args()
+    test_heartbeat(args.credentials)
 
 
-update(1)
-anim = FuncAnimation(beats.fig, update, frames=None)
-plt.show()
+if __name__ == "__main__":
+    main()
