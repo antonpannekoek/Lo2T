@@ -116,7 +116,6 @@ class GcnNotices:
                         print(f"No alert_datetime key in message of type {message.topic()}")
                         print("Setting notice_time to current time")
                         notice_time = datetime.datetime.now()
-                        continue
                     print(
                         f"topic={message.topic()}, offset={message.offset()}\n"
                         f"Received notice at {notice_time} of type {message.topic()}\n"
