@@ -1,7 +1,12 @@
 [project]
 name = "Lo2T"
-version = "2025.1.0"
+version = "2025.6.0"
 dependencies = [
+    "gcn_kafka",
+    "numpy",
+    "matplotlib",
+    "astropy",
+    "astropy_healpix",
 ]
 requires-python = ">=3.8"
 authors = [
