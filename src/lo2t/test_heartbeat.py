@@ -38,9 +38,13 @@ class Heartbeats:
         self.number_of_heartbeats = 0
         self.heartbeats = []
         self.scat = None
-        self.fig, self.ax = plt.subplots()
+        self.fig = plt.figure(figsize=(10, 5))
+        self.ax = self.fig.add_subplot(1, 1, 1)
         self.x = []
         self.y = []
+        plt.xticks(rotation=30, horizontalalignment="right")
+        # self.ax.format_xdata = mdates.DateFormatter("%Y-%m-%d %H:%M:%S")
+        self.ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M:%S"))
 
     def process_heartbeat(self, message):
         """
