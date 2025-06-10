@@ -120,8 +120,17 @@ class GcnNotices:
                         f"topic={message.topic()}, offset={message.offset()}\n"
                         f"Received notice at {notice_time} of type {message.topic()}\n"
                         f"(number {self.notice_counter[message.topic()]}"
-                        f" out of {self.notice_limit[message.topic()]})\n"
-                        f"Message: {message.value()}"
+                        f" out of {self.notice_limit[message.topic()]})"
+                    )
+                    # Save the message to a file
+                    filename = f"{message.topic()}_notice_{notice_time}.json"
+                    with open(
+                        filename,
+                        "w",
+                    ) as f:
+                        json.dump(json.loads(message.value()), f, indent=4)
+                    print(
+                        f"Saved message to {filename}"
                     )
 
                 if (
