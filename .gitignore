@@ -1,1 +1,6 @@
 credentials.toml
+build/
+dist/
+*.swp
+__pycache__
+*.egg-info
