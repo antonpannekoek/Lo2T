@@ -13,52 +13,35 @@ These have the following keys:
 """
 
 import argparse
-from base64 import b64decode
 from io import BytesIO
-import json
 from pprint import pprint
 
 from astropy.table import Table
 import astropy_healpix as ah
 import numpy as np
 
-from .json_message import JsonMessage
+from .json_message import JsonProcessor
 
 
-class LigoMessage(JsonMessage):
+class LigoProcessor(JsonProcessor):
     """
-    Deciphers LIGO JSON events
+    Class to parse a LIGO message
 
-    These have the following keys:
-    - alert_type
-    - event
-        - central_frequency
-        - classification
-        - duration
-        - far
-        - group
-        - instruments
-        - pipeline
-        - properties
-        - search
-        - significant
-        - skymap
-        - time
-    - external_coinc
-    - superevent_id
-    - time_created
-    - urls
+    Arguments:
+    message (str): The JSON GCN message to be processed
+    verbose (bool): Whether to print verbose output
 
-    Attributes
-    ----------
-    position : tuple
-        (ra, dec)
-    time : datetime
-        time of the event
-    distance : tuple
-        (mean, uncertainty)
-        mean and uncertainty of the distance to the event
+    Attributes:
+    message (str): The JSON GCN message to be processed
+    verbose (bool): Whether to print verbose output
+    record (dict): The parsed JSON message
+    skymap (bytes): The Base64-encoded skymap
+    position (tuple): (ra, dec)
+    time (datetime): The time of the event
+    distance (tuple): The mean and uncertainty of the distance to the event
     """
+    provided_formats = ["igwn.gwalert"]
+
     def __init__(self, message, verbose=False):
         super().__init__(message, verbose=verbose)
         self.position = None
@@ -73,7 +56,13 @@ class LigoMessage(JsonMessage):
     def get_distance(self):
         return self.distance
 
+    def get_time(self):
+        return self.time
+
     def parse_notice(self):
+        """
+        Parse a LIGO notice
+        """
         # Only respond to mock events. Real events have GraceDB IDs like
         # S1234567, mock events have GraceDB IDs like M1234567.
         # NOTE NOTE NOTE replace the conditional below with this commented out
@@ -110,6 +99,9 @@ class LigoMessage(JsonMessage):
                 self.skymap.meta["DISTMEAN"],
                 self.skymap.meta["DISTSTD"],
             )
+            self.time = (
+                self.record["event"]["time"]
+            )
             if self.verbose:
                 print(
                     f"Most probable sky location (RA, Dec) = "
@@ -127,8 +119,8 @@ class LigoMessage(JsonMessage):
             pprint(self.record)
 
 
-def ligo(record, **kwargs):
-    event = LigoMessage(record, **kwargs)
+def ligo(message, **kwargs):
+    event = LigoProcessor(message, **kwargs)
     event.parse_notice()
 
 

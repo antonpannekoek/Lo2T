@@ -1,11 +1,13 @@
 """
-Deciphers IceCube JSON events
+Process IceCube JSON events
 """
 
-from .json_message import JsonMessage
+from .base import JsonProcessor
 
 
-class IcecubeMessage(JsonMessage):
+class IcecubeProcessor(JsonProcessor):
+    """
+    Processor for IceCube JSON events
+    """
     def __init__(self, message, verbose=False):
-        super().__init__(message, verbose)
-
+        super().__init__(message, verbose=verbose)
