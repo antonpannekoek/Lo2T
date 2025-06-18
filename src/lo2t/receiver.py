@@ -95,6 +95,33 @@ class GcnNotices:
         notice_time = dateparser.parse(data["alert_datetime"])
         return notice_time
 
+    def save_message(self, message, notice_time):
+        # Save the message to a file
+        # message.topic()
+        filename = f"{message.topic()}_notice_{notice_time}"
+        filetype = self.notice_type[message.topic()]
+        if filetype == "json":
+            filename += ".json"
+        elif filetype == "voevent":
+            filename += ".voevent"
+
+        if filetype == "json":
+            with open(
+                filename,
+                "w",
+            ) as f:
+                json.dump(json.loads(message.value()), f, indent=4)
+        elif filetype == "voevent":
+            with open(
+                filename,
+                "wb",
+            ) as f:
+                f.write(message.value())
+        print(
+            f"Saved message to {filename}"
+        )
+        pass
+
     def listen(self, timeout=100 * u.s):
         """
         Listen for GCN notices until a given time has passed
@@ -113,11 +140,16 @@ class GcnNotices:
                     print(message.error())
                     continue
                 self.notice_counter[message.topic()] += 1
+                # optional limiter on how many messages of each type to process
                 if (
                     self.notice_limit[message.topic()]
                     > self.notice_counter[message.topic()]
                     or self.notice_limit[message.topic()] < 0
                 ):
+                    message_topic = message.topic()
+                    print(f"Processing notice of type {message_topic}")
+                    # Based on the message topic, choose the right decoder
+
                     # Print the topic and message ID
                     try:
                         if self.notice_type[message.topic()] == "json":
@@ -136,29 +168,8 @@ class GcnNotices:
                         f"(number {self.notice_counter[message.topic()]}"
                         f" out of {self.notice_limit[message.topic()]})"
                     )
-                    # Save the message to a file
-                    filename = f"{message.topic()}_notice_{notice_time}"
-                    filetype = self.notice_type[message.topic()]
-                    if filetype == "json":
-                        filename += ".json"
-                    elif filetype == "voevent":
-                        filename += ".voevent"
 
-                    if filetype == "json":
-                        with open(
-                            filename,
-                            "w",
-                        ) as f:
-                            json.dump(json.loads(message.value()), f, indent=4)
-                    elif filetype == "voevent":
-                        with open(
-                            filename,
-                            "wb",
-                        ) as f:
-                            f.write(message.value())
-                    print(
-                        f"Saved message to {filename}"
-                    )
+                    self.save_message(message, notice_time)
 
                 if (
                     self.notice_counter[message.topic()]
