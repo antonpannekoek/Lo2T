@@ -9,17 +9,17 @@ from astropy.io import fits
 registered_gcn_processors = {}
 
 
-def _get_processor_factory(format):
-    if isinstance(format, str):
+def _get_processor_factory(message_format):
+    if isinstance(message_format, str):
         if format not in registered_gcn_processors:
-            raise ValueError("Unknown GCN notice format: %s" % format)
-        return registered_gcn_processors[format]
-    return format
+            raise ValueError("Unknown GCN notice format: %s" % message_format)
+        return registered_gcn_processors[message_format]
+    return message_format
 
 
 def add_gcn_processor(processor_class):
     """
-    Register a new GCN processor class, so that the `read_gcn_notice` function
+    Register a new GCN processor class, so that the `process_gcn_notice` function
     can find it.
 
     Do not call this directly, instead use the `GcnNoticeProcessor.register`
@@ -60,7 +60,7 @@ class GcnNoticeProcessor:
     @classmethod
     def register(cls):
         """
-        Register the class so that the `read_gcn_notice` function can find it.
+        Register the class so that the `process_gcn_notice` function can find it.
         """
         add_gcn_processor(cls)
 
@@ -102,7 +102,7 @@ class JsonProcessor(GcnNoticeProcessor):
         pass
 
 
-def read_gcn_notice(message, verbose=False):
+def process_gcn_notice(message, verbose=False):
     """
     Read a message and process it
     """
@@ -127,7 +127,7 @@ def main():
         raise ValueError("Number of records and output files must be equal")
     for messagefile, filename in zip(args.record, args.output):
         with open(messagefile, "rb") as f:
-            read_gcn_notice(f, filename)
+            process_gcn_notice(f, filename)
 
 
 if __name__ == "__main__":
