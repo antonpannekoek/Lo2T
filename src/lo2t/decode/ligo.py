@@ -12,7 +12,9 @@ These have the following keys:
 
 """
 
+import os
 import argparse
+import base64
 from io import BytesIO
 from pprint import pprint
 
@@ -20,7 +22,7 @@ from astropy.table import Table
 import astropy_healpix as ah
 import numpy as np
 
-from .json_message import JsonProcessor
+from .base import JsonProcessor
 
 
 class LigoProcessor(JsonProcessor):
@@ -49,6 +51,20 @@ class LigoProcessor(JsonProcessor):
         self.distance = None
         self.decode_message()
         self.parse_notice()
+
+    def extract_skymap(self):
+        """
+        Extract the base64-encoded skymap
+        """
+        skymap_string = self.record["event"]["skymap"]
+
+        # Decode the Base64 string to bytes
+        self.skymap = base64.b64decode(skymap_string)
+
+    def write_skymap_to_fits(self, filename):
+        # Write bytes to a FITS file
+        with open(filename, "wb") as fits_file:
+            fits_file.write(self.skymap)
 
     def get_position(self):
         return self.position
@@ -81,37 +97,45 @@ class LigoProcessor(JsonProcessor):
         if self.record["event"]["group"] != "CBC":
             return
 
+        # Parse time
+        self.time = (
+            self.record["event"]["time"]
+        )
+
         # Parse sky map
         self.extract_skymap()
         # skymap_str = self.record.get("event", {}).pop("skymap")
-        if self.skymap:
-            # Decode, parse skymap, and print most probable sky location
-            # skymap_bytes = b64decode(skymap_str)
-            self.skymap = Table.read(BytesIO(self.skymap))
 
-            level, ipix = ah.uniq_to_level_ipix(
-                self.skymap[np.argmax(self.skymap["PROBDENSITY"])]["UNIQ"]
-            )
-            self.position = ah.healpix_to_lonlat(
-                ipix, ah.level_to_nside(level), order="nested"
-            )
-            self.distance = (
-                self.skymap.meta["DISTMEAN"],
-                self.skymap.meta["DISTSTD"],
-            )
-            self.time = (
-                self.record["event"]["time"]
-            )
-            if self.verbose:
-                print(
-                    f"Most probable sky location (RA, Dec) = "
-                    f"({self.position[0].deg}, {self.position[1].deg})"
-                )
+        # Decode, parse skymap, and print most probable sky location
+        # skymap_bytes = b64decode(skymap_str)
+        self.skymap = Table.read(BytesIO(self.skymap))
 
-                # Print some information from FITS header
-                print(
-                    f'Distance = {self.distance[0]} +/- {self.distance[1]}'
-                )
+        level, ipix = ah.uniq_to_level_ipix(
+            self.skymap[np.argmax(self.skymap["PROBDENSITY"])]["UNIQ"]
+        )
+        self.position = ah.healpix_to_lonlat(
+            ipix, ah.level_to_nside(level), order="nested"
+        )
+        self.distance = (
+            self.skymap.meta["DISTMEAN"],
+            self.skymap.meta["DISTSTD"],
+        )
+        if self.verbose:
+            print(
+                f"Most probable sky location (RA, Dec) = "
+                f"({self.position[0].deg}, {self.position[1].deg})"
+            )
+
+            # Print some information from FITS header
+            print(
+                f'Distance = {self.distance[0]} +/- {self.distance[1]}'
+            )
+
+        superevent_id = self.record["superevent_id"]
+        if not os.path.exists(superevent_id):
+            os.mkdir(superevent_id)
+        filename = os.path.join(superevent_id, "skymap.fits")
+        self.write_skymap_to_fits(filename)
 
         if self.verbose > 1:
             # Print remaining fields

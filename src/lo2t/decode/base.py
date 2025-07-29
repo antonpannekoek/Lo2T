@@ -98,21 +98,6 @@ class JsonProcessor(GcnNoticeProcessor):
         self.record = json.load(self.message)
         self.message = None  # free memory
 
-    def extract_skymap(self):
-        """
-        Extract the base64-encoded skymap
-        (may not always be present?)
-        """
-        skymap_string = self.record["event"]["skymap"]
-
-        # Decode the Base64 string to bytes
-        self.skymap = base64.b64decode(skymap_string)
-
-    def write_skymap_to_fits(self, filename):
-        # Write bytes to a FITS file
-        with open(filename, "wb") as fits_file:
-            fits_file.write(self.skymap)
-
     def get_position(self):
         pass
 
