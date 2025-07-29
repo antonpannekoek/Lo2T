@@ -3,7 +3,24 @@
 # Does not include credentials and should not include these!
 # Includes many of the most common alerts, both voevent and json type
 
+[lo2t]
+# Lo2T configuration
+min_deg_above_horizon = 20
+
+
+[lo2t.grb]
+# settings for GRB triggers
+proposal_code = ""
+number_of_beams = 1
+
+[lo2t.gw]
+# settings for GW triggers
+proposal_code = ""
+number_of_beams = 7
+
+
 [gcn]
+domain = "gcn.nasa.gov"
 subscriptions = [
     "gcn.circulars",  # 8 per day
     # "gcn.heartbeat",  # 1 per second
