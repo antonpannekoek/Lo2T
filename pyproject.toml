@@ -1,10 +1,26 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools", "versioningit"]
 build-backend = "setuptools.build_meta"
+
+[tool.versioningit]
+
+[tool.versioningit.next-version]
+method = "smallest"
+
+[tool.versioningit.format]
+distance = "{next_version}.dev{distance}+{vcs}{rev}"
+# Example formatted version: 1.2.4.dev42+ge174a1f
+
+dirty = "{base_version}+d{build_date:%Y%m%d}"
+# Example formatted version: 1.2.3+d20230922
+
+distance-dirty = "{next_version}.dev{distance}+{vcs}{rev}.d{build_date:%Y%m%d}"
+# Example formatted version: 1.2.4.dev42+ge174a1f.d20230922
 
 [project]
 name = "Lo2T"
-version = "2025.6.0"
+dynamic = ["version"]
+requires-python = ">=3.11"
 dependencies = [
     "gcn_kafka",
     "numpy",
@@ -12,7 +28,6 @@ dependencies = [
     "astropy",
     "astropy_healpix",
 ]
-requires-python = ">=3.11"
 authors = [
   {name = "Steven Rieder", email="s.rieder@uva.nl"}
 ]
