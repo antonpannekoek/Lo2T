@@ -2,6 +2,8 @@
 Receive Kafka GCN messages
 """
 
+import os
+import logging
 import time
 import datetime
 import argparse
@@ -29,9 +31,23 @@ def receiver_argument_parser():
     )
     parser.add_argument(
         "-c",
-        "--config",
+        "--configfile",
         default="config.toml",
         help="Path to configuration file",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        default=0,
+        action="count",
+        help="Verbosity level, repeat to increase verbosity",
+    )
+    parser.add_argument(
+        "-t",
+        "--test_message",
+        default="",
+        type=str,
+        help="Test message to process",
     )
     return parser
 
@@ -41,7 +57,9 @@ class GcnNotices:
     Class for receiving and keeping track of GCN notices
     """
 
-    def __init__(self, configfile):
+    def __init__(self, configfile="config.toml", verbose=0):
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(10 - verbose * 10)
         self.consumer = None
         self.notice_counter = {}
         self.notice_limit = {}
@@ -55,6 +73,7 @@ class GcnNotices:
         """
         with open(configfile, "rb") as f:
             config = tomllib.load(f)
+        self.domain = config["gcn"]["domain"]
         self.subscriptions = config["gcn"]["subscriptions"]
         credentials = config["gcn"]["credentials"]
         self.__client_id = credentials["client_id"]
@@ -72,7 +91,7 @@ class GcnNotices:
             self.notice_limit[subscription] = subscription_config["limit"]
             self.notice_type[subscription] = subscription_config["message_type"]
 
-            print(f"Listening for {subscription} notices")
+            self.logger.info(f"Registered for {subscription} notices")
         return config
 
     def connect(self):
@@ -83,7 +102,9 @@ class GcnNotices:
         self.consumer = Consumer(
             client_id=self.__client_id,
             client_secret=self.__client_secret,
+            domain=self.domain,
         )
+        # available_subscriptions = self.consumer.list_topics().topics
         self.consumer.subscribe(self.subscriptions)
 
     def extract_time(self, message):
@@ -95,10 +116,14 @@ class GcnNotices:
         notice_time = dateparser.parse(data["alert_datetime"])
         return notice_time
 
-    def save_message(self, message, notice_time):
-        # Save the message to a file
+    def save_message(self, message, notice_time, outdir="notices"):
+        "Save the message to a file"
+        # make sure the output dir exists
+        if not os.path.exists(outdir):
+            os.makedirs(outdir)
+
         # message.topic()
-        filename = f"{message.topic()}_notice_{notice_time}"
+        filename = f"{outdir}/{message.topic()}_notice_{notice_time}"
         filetype = self.notice_type[message.topic()]
         if filetype == "json":
             filename += ".json"
@@ -117,10 +142,10 @@ class GcnNotices:
                 "wb",
             ) as f:
                 f.write(message.value())
-        print(
-            f"Saved message to {filename}"
+
+        self.logger.info(
+            "Saved message to file %s", filename
         )
-        pass
 
     def listen(self, timeout=100 * u.s):
         """
@@ -129,7 +154,7 @@ class GcnNotices:
         if not isinstance(timeout, u.Quantity):
             # assume seconds if not explicitly given
             timeout = timeout * u.s
-            print(f"Timeout set to {timeout}")
+            self.logger.info("Timeout set to %s", timeout)
         time_start = time.time() * u.s
         while (
             (time.time() * u.s < time_start + timeout)
@@ -137,62 +162,86 @@ class GcnNotices:
         ):
             for message in self.consumer.consume(timeout=1):
                 if message.error():
-                    print(message.error())
+                    self.logger.error(message.error())
                     continue
-                self.notice_counter[message.topic()] += 1
-                # optional limiter on how many messages of each type to process
-                if (
-                    self.notice_limit[message.topic()]
-                    > self.notice_counter[message.topic()]
-                    or self.notice_limit[message.topic()] < 0
-                ):
-                    message_topic = message.topic()
-                    print(f"Processing notice of type {message_topic}")
-                    # Based on the message topic, choose the right decoder
+                self.parse_message(message)
 
-                    # Print the topic and message ID
-                    try:
-                        if self.notice_type[message.topic()] == "json":
-                            notice_time = self.extract_time(message)
-                        elif self.notice_type[message.topic()] == "voevent":
-                            print("not a json message, setting notice_time to current time")
-                            notice_time = datetime.datetime.now()
-                    except KeyError:
-                        print(f"No alert_datetime key in message of type {message.topic()}")
-                        print("Setting notice_time to current time")
-                        notice_time = datetime.datetime.now()
+    def parse_message(self, message):
+        """
+        Parse a message
+        """
+        self.notice_counter[message.topic()] += 1
+        # optional limiter on how many messages of each type to process
+        if (
+            self.notice_limit[message.topic()]
+            > self.notice_counter[message.topic()]
+            or self.notice_limit[message.topic()] < 0
+        ):
+            message_topic = message.topic()
+            self.logger.info("Received message of type %s", message_topic)
+            # Based on the message topic, choose the right decoder
 
-                    print(
-                        f"topic={message.topic()}, offset={message.offset()}\n"
-                        f"Received notice at {notice_time} of type {message.topic()}\n"
-                        f"(number {self.notice_counter[message.topic()]}"
-                        f" out of {self.notice_limit[message.topic()]})"
+            # Print the topic and message ID
+            try:
+                if self.notice_type[message.topic()] == "json":
+                    notice_time = self.extract_time(message)
+                elif self.notice_type[message.topic()] == "voevent":
+                    self.logger.info(
+                        "not a json message, setting notice_time to current time"
                     )
+                    notice_time = datetime.datetime.now()
+            except KeyError:
+                self.logger.error(
+                    "No alert_datetime key in message of type %s "
+                    + "Setting notice_time to current time",
+                    message.topic(),
+                )
+                notice_time = datetime.datetime.now()
 
-                    self.save_message(message, notice_time)
+            self.logger.info(
+                "topic=%s, offset=%s\n"
+                "Received notice at %s of type %s\n"
+                "(number %d out of %d)",
+                message.topic(), message.offset(), notice_time, message.topic(),
+                self.notice_counter[message.topic()],
+                self.notice_limit[message.topic()],
+            )
 
-                if (
-                    self.notice_counter[message.topic()]
-                    == self.notice_limit[message.topic()]
-                ):
-                    print(
-                        f"Received {self.notice_limit[message.topic()]} "
-                        f"notices of type {message.topic()}"
-                        f" - stopping listening to these notices"
-                    )
+            self.save_message(message, notice_time)
+
+        if (
+            self.notice_counter[message.topic()]
+            == self.notice_limit[message.topic()]
+        ):
+            self.logger.info(
+                "Received %s notices of type %s"
+                " - stopping listening to these notices",
+                self.notice_limit[message.topic()], message.topic()
+            )
 
 
-def receiver(configfile):
+def receiver(configfile="config.toml", test_message=None, **kwargs):
+    logger = logging.getLogger(__name__)
+    if test_message:
+        notices = GcnNotices(configfile)
+        notices.parse_message(test_message)
+        return
     # Subscribe to topics and receive alerts
     notices = GcnNotices(configfile)
+    logger.info("Connecting...")
     notices.connect()
+    logger.info("Listening...")
     notices.listen(timeout=-1 * u.s)
 
 
 def main():
     parser = receiver_argument_parser()
+    logging.basicConfig(filename="lo2t.log", level=logging.INFO)
     args = parser.parse_args()
-    receiver(args.config)
+    logger = logging.getLogger(__name__)
+    logger.info("Config file: %s", args.configfile)
+    logger.info("Starting receiver")
+    receiver(**vars(args))
 
 
 if __name__ == "__main__":
