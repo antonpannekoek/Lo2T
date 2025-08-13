@@ -13,6 +13,8 @@ These have the following keys:
 """
 
 import os
+import tempfile
+import requests
 import argparse
 import base64
 from io import BytesIO
@@ -77,7 +79,9 @@ class LigoProcessor(JsonProcessor):
 
     def parse_notice(self):
         """
-        Parse a LIGO notice
+        Parse a LIGO notice.
+
+        See https://emfollow.docs.ligo.org/userguide/tutorial/receiving/gcn.html#receiving-and-parsing-notices
         """
         # Only respond to mock events. Real events have GraceDB IDs like
         # S1234567, mock events have GraceDB IDs like M1234567.
@@ -131,13 +135,15 @@ class LigoProcessor(JsonProcessor):
                 f'Distance = {self.distance[0]} +/- {self.distance[1]}'
             )
 
-        superevent_id = self.record["superevent_id"]
-        if not os.path.exists(superevent_id):
-            os.mkdir(superevent_id)
-        filename = os.path.join(superevent_id, "skymap.fits")
-        self.write_skymap_to_fits(filename)
-
         if self.verbose > 1:
+            print("Writing skymap to FITS file")
+            superevent_id = self.record["superevent_id"]
+            if not os.path.exists(superevent_id):
+                os.mkdir(superevent_id)
+            filename = os.path.join(superevent_id, "skymap.fits")
+            self.write_skymap_to_fits(filename)
+
+        if self.verbose > 2:
             # Print remaining fields
             print("Record:")
             pprint(self.record)
@@ -160,11 +166,43 @@ def ligo_argument_parser():
         help="Verbosity level, repeat to increase verbosity",
     )
     parser.add_argument("-r", "--record", nargs="+", help="LIGO records to parse")
+    parser.add_argument(
+        "-t", "--test", action="store_true", 
+        help="Test mode: download and parse test event"
+    )
     return parser
 
 
 def main():
     args = ligo_argument_parser().parse_args()
+    if args.test:
+        list_of_messages = [
+            "https://emfollow.docs.ligo.org/userguide/_downloads/5ae1eb9a4ae5aaf3505f83b110bcb954/MS181101ab-earlywarning.json",
+            "https://emfollow.docs.ligo.org/userguide/_downloads/84cc6bbbd1de21294e40f9bca4a3a3d9/MS181101ab-preliminary.json",
+            "https://emfollow.docs.ligo.org/userguide/_downloads/9512c334adf9bd37b7632501a981c6e0/MS181101ab-initial.json",
+            "https://emfollow.docs.ligo.org/userguide/_downloads/b5f608ad3594d33a3613776c15fef9a5/MS181101ab-update.json",
+            "https://emfollow.docs.ligo.org/userguide/_downloads/9f8ecf8418fea677a04dc39811fe9943/MS181101ab-retraction.json",
+            "https://emfollow.docs.ligo.org/userguide/_downloads/a8cb61f0b98aae26aecb5e5fda68a29e/MS181101ab-ext-update.json",
+        ]
+        # Create tempdir
+        with tempfile.TemporaryDirectory() as tempdir:
+            for url in list_of_messages:
+                r = requests.get(url, timeout=10)
+                with open(
+                    os.path.join(tempdir, os.path.basename(url)),
+                    "w",
+                    encoding="utf-8",
+                ) as f:
+                    f.write(r.text)
+
+                with open(
+                    os.path.join(tempdir, os.path.basename(url)),
+                    "r",
+                    encoding="utf-8",
+                ) as f:
+                    ligo(f, verbose=args.verbose)
+        return
+
     for file in args.record:
         with open(file, "r") as f:
             ligo(f, verbose=args.verbose)
