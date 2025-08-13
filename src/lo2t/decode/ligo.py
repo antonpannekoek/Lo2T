@@ -14,12 +14,13 @@ These have the following keys:
 
 import os
 import tempfile
-import requests
+import datetime
 import argparse
 import base64
 from io import BytesIO
 from pprint import pprint
 
+import requests
 from astropy.table import Table
 import astropy_healpix as ah
 import numpy as np
@@ -51,6 +52,10 @@ class LigoProcessor(JsonProcessor):
         self.position = None
         self.time = None
         self.distance = None
+        self.terrestrial_chance = None
+        self.false_alarm_rate = None
+        self.has_neutron_star = None
+        self.has_remnant = None
         self.decode_message()
         self.parse_notice()
 
@@ -102,8 +107,9 @@ class LigoProcessor(JsonProcessor):
             return
 
         # Parse time
-        self.time = (
-            self.record["event"]["time"]
+        self.time = datetime.strptime(
+            self.record["event"]["time"],
+            "%Y-%m-%dT%H:%M:%S.%fZ",
         )
 
         # Parse sky map
@@ -124,6 +130,13 @@ class LigoProcessor(JsonProcessor):
             self.skymap.meta["DISTMEAN"],
             self.skymap.meta["DISTSTD"],
         )
+
+        self.terrestrial_chance = self.record["event"]["classification"]["Terrestrial"]
+        self.false_alarm_rate = self.record["event"]["far"]
+        self.has_neutron_star = self.record["event"]["properties"]["HasNS"]
+        self.has_remnant = self.record["event"]["properties"]["HasRemnant"]
+
+
         if self.verbose:
             print(
                 f"Most probable sky location (RA, Dec) = "
