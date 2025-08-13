@@ -4,7 +4,11 @@ Base classes for processing GCN notices
 import argparse
 import json
 import base64
+import dateutil
+
+from lxml import etree
 from astropy.io import fits
+import astropy.units as u
 
 registered_gcn_processors = {}
 
@@ -99,7 +103,73 @@ class JsonProcessor(GcnNoticeProcessor):
         self.message = None  # free memory
 
     def get_position(self):
+        # position finding logic goes here
         pass
+
+
+class VoeventProcessor(GcnNoticeProcessor):
+    """
+    Class to parse a VOEvent message
+
+    Arguments:
+    message (str): The VOEvent GCN message to be processed
+    verbose (bool): Whether to print verbose output
+
+    Attributes:
+    message (str): The VOEvent GCN message to be processed
+    verbose (bool): Whether to print verbose output
+    record (dict): The parsed VOEvent message
+    """
+    def __init__(self, message, verbose=False):
+        super().__init__(message, verbose)
+        self.record = None
+
+    def process(self):
+        """
+        Process the VOEvent message
+        """
+        self.decode_message()
+
+    def decode_message(self):
+        """
+        Decode the VOEvent message
+        """
+        tree = etree.parse(self.message)
+        root = tree.getroot()
+        self.record = root
+
+    def get_position(self):
+        # position finding logic goes here
+        wherewhen = self.record.find(".//WhereWhen")
+        obs_data_location = wherewhen.find(".//ObsDataLocation")
+        observation_location = obs_data_location.find(".//ObservationLocation")
+        astro_coords = observation_location.find(".//AstroCoords")
+        position2d = astro_coords.find(".//Position2D")
+
+        if (
+            position2d.find("Name1").text == "RA"
+            and position2d.find("Name2").text == "Dec"
+        ):
+            value2 = position2d.find("Value2")
+            ra = float(value2.find("C1").text) * u.deg
+            dec = float(value2.find("C2").text) * u.deg
+        else:
+            ra = None
+            dec = None
+
+        return ra, dec
+
+    def get_observation_time(self):
+        # observation time finding logic goes here
+        wherewhen = self.record.find(".//WhereWhen")
+        obs_data_location = wherewhen.find(".//ObsDataLocation")
+        observation_location = obs_data_location.find(".//ObservationLocation")
+        astro_coords = observation_location.find(".//AstroCoords")
+        astro_time = astro_coords.find(".//Time")
+        time_instant = astro_time.find(".//TimeInstant")
+        self.time = dateutil.parser.parse(time_instant.find(".//ISOTime").text)
+        return self.time
+
 
 
 def process_gcn_notice(message, verbose=False):
