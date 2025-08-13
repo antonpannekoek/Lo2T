@@ -27,6 +27,7 @@ dependencies = [
     "matplotlib",
     "astropy",
     "astropy_healpix",
+    "lxml",  # for voevent xml notices
 ]
 authors = [
   {name = "Steven Rieder", email="s.rieder@uva.nl"}
