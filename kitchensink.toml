@@ -5,18 +5,43 @@
 
 [lo2t]
 # Lo2T configuration
-min_deg_above_horizon = 20
 
 
 [lo2t.grb]
 # settings for GRB triggers
 proposal_code = ""
 number_of_beams = 1
+trigger_duration = 2.0  # time in seconds from BAT trigger message
+rate_significance = 10.0  # rate significance of the BAT trigger in sigma
+grb_list = "triggered_grbs_trigids.txt"  # list of triggered GRBs -> maybe a database instead?
+template = "IM RT HBA - 1 beam"
+scheduling_set_id = 262
+mode = "run"
+
 
 [lo2t.gw]
 # settings for GW triggers
 proposal_code = ""
 number_of_beams = 7
+minimum_false_alarm_rate = 1.0e-13
+has_neutron_star = 0.8  # probability of a NS in the merger?
+has_remnant = 0.5  # probability of a remnant in the merger?
+maximum_terrestrial = 0.01  # maximum probability of a terrestrial event
+minimum_number_of_detectors = 3  # minimum number of detectors required
+template = "IM RT HBA - 7 beams"
+scheduling_set_id = 199
+mode = "run"
+
+
+[lo2t.lofar]
+maximum_observation_time_minutes = 120.0
+minimum_observation_time_minutes = 30.0
+minimum_deg_above_horizon = 20.0
+maximum_dwell_time_minutes = 8.0
+minimum_dwell_time_minutes = 4.0
+calibration_observation_time_minutes = 10.0
+delay_minutes = 10.0
+default_wait_time_minutes = 5.0
 
 
 [gcn]
