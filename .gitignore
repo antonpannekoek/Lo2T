@@ -4,3 +4,5 @@ dist/
 *.swp
 __pycache__
 *.egg-info
+example_notices
+notices
