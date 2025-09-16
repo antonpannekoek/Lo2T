@@ -13,7 +13,7 @@ import numpy as np
 
 def adapt_datetime_iso(val):
     """Adapt datetime.datetime to timezone-naive ISO 8601 date."""
-    return val.replace(tzinfo=None).isoformat()
+    return val.replace(tzinfo=datetime.timezone.utc).isoformat()
 
 
 def convert_datetime(val):
