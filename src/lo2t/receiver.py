@@ -111,64 +111,68 @@ class GcnNotices:
         # available_subscriptions = self.consumer.list_topics().topics
         self.consumer.subscribe(self.subscriptions)
 
-    def extract_time(self, message):
-        """
-        Extract the time from a notice
-        """
-        value = message.value()
-        data = json.loads(value)
-        notice_time = dateparser.parse(data["alert_datetime"])
-        return notice_time
+    # def extract_time(self, message):
+    #     """
+    #     Extract the time from a notice
+    #     """
+    #     value = message.value()
+    #     data = json.loads(value)
+    #     notice_time = dateparser.parse(data["alert_datetime"])
+    #     return notice_time
 
-    def save_message(self, message, notice_time, outdir="notices"):
-        "Save the message to a file"
-        # make sure the output dir exists
-        if not os.path.exists(outdir):
-            os.makedirs(outdir)
+    # def save_message(self, message, notice_time, outdir="notices"):
+    #     "Save the message to a file"
+    #     # make sure the output dir exists
+    #     if not os.path.exists(outdir):
+    #         os.makedirs(outdir)
 
-        # message.topic()
-        filename = f"{outdir}/{message.topic()}_notice_{notice_time}"
-        filetype = self.notice_type[message.topic()]
-        if filetype == "json":
-            filename += ".json"
-        elif filetype == "voevent":
-            filename += ".voevent"
+    #     # message.topic()
+    #     filename = f"{outdir}/{message.topic()}_notice_{notice_time}"
+    #     filetype = self.notice_type[message.topic()]
+    #     if filetype == "json":
+    #         filename += ".json"
+    #     elif filetype == "voevent":
+    #         filename += ".voevent"
 
-        if filetype == "json":
-            with open(
-                filename,
-                "w",
-            ) as f:
-                json.dump(json.loads(message.value()), f, indent=4)
-        elif filetype == "voevent":
-            with open(
-                filename,
-                "wb",
-            ) as f:
-                f.write(message.value())
+    #     if filetype == "json":
+    #         with open(
+    #             filename,
+    #             "w",
+    #         ) as f:
+    #             json.dump(json.loads(message.value()), f, indent=4)
+    #     elif filetype == "voevent":
+    #         with open(
+    #             filename,
+    #             "wb",
+    #         ) as f:
+    #             f.write(message.value())
 
-        self.logger.info(
-            "Saved message to file %s", filename
-        )
+    #     self.logger.info(
+    #         "Saved message to file %s", filename
+    #     )
 
-    def listen(self, timeout=100 * u.s):
+    def listen(self, timeout=0 * u.s):
         """
         Listen for GCN notices until a given time has passed
         """
         if not isinstance(timeout, u.Quantity):
             # assume seconds if not explicitly given
             timeout = timeout * u.s
+        if timeout <= 0 * u.s:
+            self.logger.info("Listening indefinitely")
+        else:
             self.logger.info("Timeout set to %s", timeout)
         time_start = time.time() * u.s
         while (
             (time.time() * u.s < time_start + timeout)
-            or timeout < 0
+            or timeout <= 0 * u.s
         ):
             for message in self.consumer.consume(timeout=1):
                 if message.error():
                     self.logger.error(message.error())
                     continue
                 self.parse_message(message)
+                self.process_message(message)
 
     def parse_message(self, message):
         """
@@ -184,34 +188,34 @@ class GcnNotices:
             message_topic = message.topic()
             self.logger.info("Received message of type %s", message_topic)
             # Based on the message topic, choose the right decoder
+            # - now done automatically
 
-            # Print the topic and message ID
-            try:
-                if self.notice_type[message.topic()] == "json":
-                    notice_time = self.extract_time(message)
-                elif self.notice_type[message.topic()] == "voevent":
-                    self.logger.info(
-                        "not a json message, setting notice_time to current time"
-                    )
-                    notice_time = datetime.datetime.now()
-            except KeyError:
-                self.logger.error(
-                    "No alert_datetime key in message of type %s "
-                    + "Setting notice_time to current time",
-                    message.topic(),
-                )
-                notice_time = datetime.datetime.now()
+            # # Print the topic and message ID
+            # try:
+            #     if self.notice_type[message.topic()] == "json":
+            #         notice_time = self.extract_time(message)
+            #     elif self.notice_type[message.topic()] == "voevent":
+            #         self.logger.info(
+            #             "not a json message, setting notice_time to current time"
+            #         )
+            #         notice_time = datetime.datetime.now()
+            # except KeyError:
+            #     self.logger.error(
+            #         "No alert_datetime key in message of type %s "
+            #         + "Setting notice_time to current time",
+            #         message.topic(),
+            #     )
+            #     notice_time = datetime.datetime.now()
 
+            notice_time = datetime.datetime.now()
             self.logger.info(
                 "topic=%s, offset=%s\n"
-                "Received notice at %s of type %s\n"
-                "(number %d out of %d)",
+                "Received notice at %s of type %s",
                 message.topic(), message.offset(), notice_time, message.topic(),
-                self.notice_counter[message.topic()],
-                self.notice_limit[message.topic()],
             )
-
-            self.save_message(message, notice_time)
+            # processing done later now
+            # self.process_message(message)
+            # self.save_message(message, notice_time)
 
         if (
             self.notice_counter[message.topic()]
