@@ -28,6 +28,9 @@ dependencies = [
     "astropy",
     "astropy_healpix",
     "lxml",  # for voevent xml notices
+    "lofar_tmss_client",  # https://git.astron.nl/tmss/lofar_tmss_client
+    "tmss_pycommon",  # https://git.astron.nl/tmss/libraries/pycommon
+    "tmss_pymessaging",  # https://git.astron.nl/tmss/libraries/pymessaging
 ]
 authors = [
   {name = "Steven Rieder", email="s.rieder@uva.nl"}
