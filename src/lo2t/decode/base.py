@@ -3,19 +3,20 @@ Base classes for processing GCN notices
 """
 import argparse
 import json
-import base64
 import dateutil
 
 from lxml import etree
-from astropy.io import fits
 import astropy.units as u
 
 registered_gcn_processors = {}
 
 
 def _get_processor_factory(message_format):
+    print(message_format)
+    print(registered_gcn_processors)
+    print(message_format in registered_gcn_processors)
     if isinstance(message_format, str):
-        if format not in registered_gcn_processors:
+        if message_format not in registered_gcn_processors:
             raise ValueError("Unknown GCN notice format: %s" % message_format)
         return registered_gcn_processors[message_format]
     return message_format
@@ -51,15 +52,28 @@ class GcnNoticeProcessor:
     message: The GCN notice to be processed.
     verbose: Whether to print verbose output.
     """
+
+    provided_formats = []
+
+    index = None
+    alert_type = None
+    time = None
+    position = (None, None)
+    healpix_index = None
+    position_err = (None, None)
+    distance = (None, None)
+    data = None
+
+
     def __init__(self, message, verbose=False):
         self.message = message
         self.verbose = verbose
 
-    def process(self):
-        """
-        Process the GCN notice, extracting the information encoded in it.
-        """
-        raise NotImplementedError
+    # def process(self):
+    #     """
+    #     Process the GCN notice, extracting the information encoded in it.
+    #     """
+    #     raise NotImplementedError
 
     @classmethod
     def register(cls):
@@ -87,23 +101,32 @@ class JsonProcessor(GcnNoticeProcessor):
         super().__init__(message, verbose)
         self.record = None
         self.skymap = None
+        self.message = message
 
     def process(self):
         """
         Process the JSON message
         """
         self.decode_message()
-        self.extract_skymap()
+
+    def parse_notice(self):
+        """
+        Parse the JSON message
+        """
+        pass
 
     def decode_message(self):
         """
         Decode the JSON message
         """
-        self.record = json.load(self.message)
-        self.message = None  # free memory
+        self.topic = self.message.topic()
+        self.record = json.loads(self.message.value())
+        # self.message = None  # free memory
 
     def get_position(self):
-        # position finding logic goes here
+        """
+        Get the position of the event
+        """
         pass
 
 
@@ -177,8 +200,13 @@ def process_gcn_notice(message, verbose=False):
     Read a message and process it
     """
     processor_factory = _get_processor_factory(message.topic())
-    notice = GcnNoticeProcessor(message, verbose=verbose)
+    print(message)
+    print(processor_factory)
+    notice = processor_factory(message, verbose=verbose)
+    print(notice)
+    print(notice.message)
     notice.process()
+    notice.parse_notice()
     return notice
 
 

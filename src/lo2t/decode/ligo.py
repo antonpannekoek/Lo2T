@@ -42,6 +42,7 @@ class LigoProcessor(JsonProcessor):
     record (dict): The parsed JSON message
     skymap (bytes): The Base64-encoded skymap
     position (tuple): (ra, dec)
+    position_err (tuple): (ra, dec)
     time (datetime): The time of the event
     distance (tuple): The mean and uncertainty of the distance to the event
     """
@@ -49,24 +50,44 @@ class LigoProcessor(JsonProcessor):
 
     def __init__(self, message, verbose=False):
         super().__init__(message, verbose=verbose)
-        self.position = None
+        self.index = None
+        self.message = message
+        self.position = (None, None)
+        self.position_err = (None, None)
         self.time = None
-        self.distance = None
+        self.distance = (None, None)
         self.terrestrial_chance = None
         self.false_alarm_rate = None
         self.has_neutron_star = None
         self.has_remnant = None
+        self.skymap = None
         self.decode_message()
         self.parse_notice()
 
+    def process(self):
+        """
+        Processes the JSON message
+        """
+        self.decode_message()
+        self.extract_skymap()
+
     def extract_skymap(self):
         """
-        Extract the base64-encoded skymap
+        Extracts the base64-encoded skymap
         """
-        skymap_string = self.record["event"]["skymap"]
+        print(f"Record keys: {self.record.keys()}")
+        # print(f"Event keys: {self.record['event'].keys()}")
+        try:
+            skymap_str = self.record["event"]["skymap"]
+        except ValueError:
+            print("No skymap (ValueError)")
+            return
+        except TypeError:
+            print("No skymap (TypeError)")
+            return
 
         # Decode the Base64 string to bytes
-        self.skymap = base64.b64decode(skymap_string)
+        self.skymap = base64.b64decode(skymap_str)
 
     def write_skymap_to_fits(self, filename):
         # Write bytes to a FITS file
@@ -88,14 +109,15 @@ class LigoProcessor(JsonProcessor):
 
         See https://emfollow.docs.ligo.org/userguide/tutorial/receiving/gcn.html#receiving-and-parsing-notices
         """
-        # Only respond to mock events. Real events have GraceDB IDs like
-        # S1234567, mock events have GraceDB IDs like M1234567.
-        # NOTE NOTE NOTE replace the conditional below with this commented out
-        # conditional to only parse real events.
-        # if record['superevent_id'][0] != 'S':
-        #    return
-        if self.record["superevent_id"][0] != "M":
-            return
+        # Only respond to real events.
+        # Real events have GraceDB IDs like S1234567, mock events have GraceDB
+        # IDs like M1234567.
+        # if self.record['superevent_id'][0] != 'S':
+        #     return
+        # if self.record["superevent_id"][0] != "M":
+        #     return
+        self.index = self.record["superevent_id"]
+        self.alert_type = self.record["alert_type"]
 
         if self.record["alert_type"] == "RETRACTION":
             print(self.record["superevent_id"], "was retracted")
@@ -107,7 +129,7 @@ class LigoProcessor(JsonProcessor):
             return
 
         # Parse time
-        self.time = datetime.strptime(
+        self.time = datetime.datetime.strptime(
             self.record["event"]["time"],
             "%Y-%m-%dT%H:%M:%S.%fZ",
         )
@@ -116,45 +138,50 @@ class LigoProcessor(JsonProcessor):
         self.extract_skymap()
         # skymap_str = self.record.get("event", {}).pop("skymap")
 
-        # Decode, parse skymap, and print most probable sky location
-        # skymap_bytes = b64decode(skymap_str)
-        self.skymap = Table.read(BytesIO(self.skymap))
+        if self.skymap is not None:
+            # Decode, parse skymap, and print most probable sky location
+            # skymap_bytes = b64decode(skymap_str)
+            self.skymap = Table.read(BytesIO(self.skymap))
 
-        level, ipix = ah.uniq_to_level_ipix(
-            self.skymap[np.argmax(self.skymap["PROBDENSITY"])]["UNIQ"]
-        )
-        self.position = ah.healpix_to_lonlat(
-            ipix, ah.level_to_nside(level), order="nested"
-        )
-        self.distance = (
-            self.skymap.meta["DISTMEAN"],
-            self.skymap.meta["DISTSTD"],
-        )
-
-        self.terrestrial_chance = self.record["event"]["classification"]["Terrestrial"]
-        self.false_alarm_rate = self.record["event"]["far"]
-        self.has_neutron_star = self.record["event"]["properties"]["HasNS"]
-        self.has_remnant = self.record["event"]["properties"]["HasRemnant"]
-
-
-        if self.verbose:
-            print(
-                f"Most probable sky location (RA, Dec) = "
-                f"({self.position[0].deg}, {self.position[1].deg})"
+            # Location with highest probability density in the skymap is chosen
+            # as location
+            level, ipix = ah.uniq_to_level_ipix(
+                self.skymap[np.argmax(self.skymap["PROBDENSITY"])]["UNIQ"]
             )
-
-            # Print some information from FITS header
-            print(
-                f'Distance = {self.distance[0]} +/- {self.distance[1]}'
+            self.position = ah.healpix_to_lonlat(
+                ipix, ah.level_to_nside(level), order="nested"
             )
+            try:
+                self.distance = (
+                    self.skymap.meta["DISTMEAN"],
+                    self.skymap.meta["DISTSTD"],
+                )
+            except KeyError:
+                pass
 
-        if self.verbose > 1:
-            print("Writing skymap to FITS file")
-            superevent_id = self.record["superevent_id"]
-            if not os.path.exists(superevent_id):
-                os.mkdir(superevent_id)
-            filename = os.path.join(superevent_id, "skymap.fits")
-            self.write_skymap_to_fits(filename)
+            self.terrestrial_chance = self.record["event"]["classification"]["Terrestrial"]
+            self.false_alarm_rate = self.record["event"]["far"]
+            self.has_neutron_star = self.record["event"]["properties"]["HasNS"]
+            self.has_remnant = self.record["event"]["properties"]["HasRemnant"]
+
+            if self.verbose:
+                print(
+                    f"Most probable sky location (RA, Dec) = "
+                    f"({self.position[0].deg}, {self.position[1].deg})"
+                )
+
+                # Print some information from FITS header
+                print(
+                    f'Distance = {self.distance[0]} +/- {self.distance[1]}'
+                )
+
+            if self.verbose > 1:
+                print("Writing skymap to FITS file")
+                superevent_id = self.record["superevent_id"]
+                if not os.path.exists(superevent_id):
+                    os.mkdir(superevent_id)
+                filename = os.path.join(superevent_id, "skymap.fits")
+                self.write_skymap_to_fits(filename)
 
         if self.verbose > 2:
             # Print remaining fields
