@@ -223,6 +223,17 @@ class GcnNotices:
                 self.notice_limit[message.topic()], message.topic()
             )
 
+    def process_message(self, message):
+        try:
+            self.processed_notice = process_gcn_notice(message)
+            self.db.add_event(self.processed_notice)
+        except ValueError as e:
+            print(f"Failed to process message (type: {message.topic()})")
+            print(e)
+            self.logger.error("Failed to process message (type: %s)", message.topic())
+            self.logger.error(e)
+        return
+
 
 def receiver(configfile="config.toml", test_message=None, **kwargs):
     logger = logging.getLogger(__name__)
