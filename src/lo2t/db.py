@@ -1,12 +1,14 @@
 """
 Store events in database and check if two events match id/time/location.
 """
-
+import time
 import datetime
 import sqlite3
 import tempfile
 import astropy.units as u
 import astropy_healpix
+
+import numpy as np
 
 
 def adapt_datetime_iso(val):

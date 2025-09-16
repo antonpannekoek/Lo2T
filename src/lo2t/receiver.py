@@ -16,6 +16,9 @@ import dateutil.parser as dateparser
 import numpy as np
 import astropy.units as u
 
+from .db import Lo2tDb
+from .decode import process_gcn_notice
+
 
 def get_nested_value(nested_dict, keys):
     return reduce(lambda d, k: d[k], keys, nested_dict)
@@ -66,6 +69,7 @@ class GcnNotices:
         self.notice_type = {}
         self.messages = []
         self.config = self.load_config(configfile)
+        self.db = Lo2tDb(self.config)
 
     def load_config(self, configfile):
         """
