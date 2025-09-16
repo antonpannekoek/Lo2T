@@ -239,9 +239,8 @@ def receiver(configfile="config.toml", test_message=None, **kwargs):
 
 
 def main():
-    parser = receiver_argument_parser()
-    logging.basicConfig(filename="lo2t.log", level=logging.INFO)
-    args = parser.parse_args()
+    args = receiver_argument_parser().parse_args()
+    logging.basicConfig(filename="lo2t.log", encoding="utf-8", level=logging.DEBUG)
     logger = logging.getLogger(__name__)
     logger.info("Config file: %s", args.configfile)
     logger.info("Starting receiver")
