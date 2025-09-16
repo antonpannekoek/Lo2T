@@ -90,9 +90,11 @@ class LigoProcessor(JsonProcessor):
         self.skymap = base64.b64decode(skymap_str)
 
     def write_skymap_to_fits(self, filename):
+        skymap = Table.read(BytesIO(self.skymap))
+
         # Write bytes to a FITS file
         with open(filename, "wb") as fits_file:
-            fits_file.write(self.skymap)
+            fits_file.write(skymap)
 
     def get_position(self):
         return self.position
@@ -141,20 +143,20 @@ class LigoProcessor(JsonProcessor):
         if self.skymap is not None:
             # Decode, parse skymap, and print most probable sky location
             # skymap_bytes = b64decode(skymap_str)
-            self.skymap = Table.read(BytesIO(self.skymap))
+            skymap = Table.read(BytesIO(self.skymap))
 
             # Location with highest probability density in the skymap is chosen
             # as location
             level, ipix = ah.uniq_to_level_ipix(
-                self.skymap[np.argmax(self.skymap["PROBDENSITY"])]["UNIQ"]
+                skymap[np.argmax(skymap["PROBDENSITY"])]["UNIQ"]
             )
             self.position = ah.healpix_to_lonlat(
                 ipix, ah.level_to_nside(level), order="nested"
             )
             try:
                 self.distance = (
-                    self.skymap.meta["DISTMEAN"],
-                    self.skymap.meta["DISTSTD"],
+                    skymap.meta["DISTMEAN"],
+                    skymap.meta["DISTSTD"],
                 )
             except KeyError:
                 pass
