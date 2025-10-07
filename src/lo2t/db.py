@@ -5,10 +5,10 @@ import time
 import datetime
 import sqlite3
 import tempfile
+import astropy
 import astropy.units as u
-import astropy_healpix as ah
-
-import numpy as np
+# import astropy_healpix as ah
+# import numpy as np
 
 
 def adapt_datetime_iso(val):
@@ -32,11 +32,13 @@ class Lo2tDb:
 
     def __init__(self, config):
         db_path = config["lo2t"]["db_path"]
-        self.event_table = config["lo2t"]["db_table"]
-        self.trigger_table = config["lo2t"]["db_table"]
-        self.healpix_nside = config["lo2t"]["healpix_nside"]
-        self.timezone_utc_offset = config["lo2t"]["timezone_utc_offset"]
-        self.hp = ah.HEALPix(nside=self.healpix_nside, order='nested')
+        self.event_table = config["lo2t"]["event_table"]
+        self.gw_table = config["lo2t"]["gw_table"]
+        self.grb_table = config["lo2t"]["grb_table"]
+        self.trigger_table = config["lo2t"]["trigger_table"]
+        # self.timezone_utc_offset = config["lo2t"]["timezone_utc_offset"]
+        # self.healpix_nside = config["lo2t"]["healpix_nside"]
+        # self.hp = ah.HEALPix(nside=self.healpix_nside, order='nested')
 
         if db_path is None:
             db_path = tempfile.NamedTemporaryFile().name
@@ -51,7 +53,7 @@ class Lo2tDb:
             "value TEXT)"
         )
         # store settings
-        self.store_setting("healpix_nside", self.healpix_nside)
+        # self.store_setting("healpix_nside", self.healpix_nside)
         self.store_setting("timezone_utc_offset", self.timezone_utc_offset)
 
         # Check if a start time is stored
@@ -65,7 +67,10 @@ class Lo2tDb:
             self.store_setting("start_time", self.start_time.to_value(u.s))
         print(f"Start time: {self.start_time}")
 
-        # Create a table storing events
+        # Create a table storing events.
+        # All events are added here as they are received from GCN.
+        # Only contains the basic information, specific details are stored in
+        # other tables (indicated by the alert_type).
         self.cur.execute(
             f"CREATE TABLE IF NOT EXISTS "
             f"{self.event_table} ("
@@ -81,13 +86,35 @@ class Lo2tDb:
             f"dec REAL, "  # declination, units depend on dec_unit
             f"dec_err REAL, "  # error in dec
             f"dec_unit TEXT, "  # rad or deg
-            f"healpix_index INTEGER, "  # HEALPix index, composed from ra,dec
+            # f"healpix_index INTEGER, "  # HEALPix index, composed from ra,dec
+            f"data BLOB)"  # store any additional data
+        )
+
+        # Create a table for specific details of GW events.
+        # The id needs to be the same as in the event table.
+        # Other fields as required for checking if a trigger should occur.
+        self.cur.execute(
+            f"CREATE TABLE IF NOT EXISTS "
+            f"{self.gw_table} ("
+            f"id TEXT PRIMARY KEY, "  # event id from GCN
             f"terrestrial_chance REAL, "  # chance of event being terrestrial
             f"false_alarm_rate REAL, "  # chance of event being false alarm
             f"has_neutron_star INTEGER, "  # 1 if event has a neutron star, 0 otherwise
             f"has_remnant INTEGER, "  # 1 if event has a remnant, 0 otherwise
-            f"data BLOB)"  # store any additional data
+            f"number_of_detectors INTEGER, "  # number of detectors that detected the event
+            f"data BLOB)"
         )
+
+        # Create a table for specific details of GRB events.
+        # The id needs to be the same as in the event table, and linked by a foreign key
+        self.cur.execute(
+            f"CREATE TABLE IF NOT EXISTS "
+            f"{self.grb_table} ("
+            f"id TEXT PRIMARY KEY, "  # event id from GCN
+            f"rate_significance REAL, "  # rate significance
+            f"data BLOB)"
+        )
+
         # Create a table storing triggers sent
         self.cur.execute(
             f"CREATE TABLE IF NOT EXISTS "
@@ -172,7 +199,7 @@ class Lo2tDb:
         self.set_time(event)
         self.set_position(event)
         self.set_position_error(event)
-        self.set_healpix_index(event)
+        # self.set_healpix_index(event)
         self.set_skymap(event)
         self.set_terrestrial_chance(event)
         self.set_false_alarm_rate(event)
@@ -314,28 +341,29 @@ class Lo2tDb:
         return 0
 
     def set_healpix_index(self, event):
-        """Stores the HEALPix index of the event in the database."""
-        index = self.get_index(event)
-        try:
-            healpix_index = int(event.healpix_index)
-        except (AttributeError, TypeError):
-            print("No HEALPix index")
-            try:
-                ra, dec = event.position
-                healpix_index = self.hp.lonlat_to_healpix(ra, dec)
-                print(f"Calculated HEALPix index: {healpix_index}")
-            except AttributeError:
-                print("Could not calculate HEALPix index")
-                return -1
+        pass
+        # """Stores the HEALPix index of the event in the database."""
+        # index = self.get_index(event)
+        # try:
+        #     healpix_index = int(event.healpix_index)
+        # except (AttributeError, TypeError):
+        #     print("No HEALPix index")
+        #     try:
+        #         ra, dec = event.position
+        #         healpix_index = self.hp.lonlat_to_healpix(ra, dec)
+        #         print(f"Calculated HEALPix index: {healpix_index}")
+        #     except AttributeError:
+        #         print("Could not calculate HEALPix index")
+        #         return -1
 
-        self.cur.execute(
-            f"UPDATE {self.event_table} SET healpix_index = ? WHERE id = ?",
-            (int(healpix_index), index),
-        )
-        print(f"Storing HEALPix index {healpix_index}")
-        print(f"{healpix_index.dtype}")
-        self.commit(index)
-        return 0
+        # self.cur.execute(
+        #     f"UPDATE {self.event_table} SET healpix_index = ? WHERE id = ?",
+        #     (int(healpix_index), index),
+        # )
+        # print(f"Storing HEALPix index {healpix_index}")
+        # print(f"{healpix_index.dtype}")
+        # self.commit(index)
+        # return 0
 
     def set_exposure_time(self, event):
         """Stores the exposure time of the event in the database."""
@@ -487,22 +515,41 @@ class Lo2tDb:
         """Returns True if the event is already in the database."""
         return bool(self.get_event(event.index))
 
-    def is_near_in_position(self, event):
-        # Use HEALPix to find all events within tolerance_position.
-        # We assume that is the same HEALPix index or one of its neighbours.
-        # So select all events with the same index or a neighbour index.
+    def is_near_in_position_and_time(self, event):
+        """Finds all events that are within tolerance_position and
+        tolerance_time of the event.
+        """
+        # first just find by time
+        events = self.is_near_in_time(event)
+        # then find by position
+        for e in events:
+            if self.is_near_in_position(e):
+                return e
+        pass
 
-        neighbour_indices = ah.neighbours(
-            event.healpix_index, nside=self.healpix_nside
-        )
-        neighbour_indices.append(event.healpix_index)
+    def is_near_in_position(self, event, other_event):
+        tolerance_position = self.tolerance_position
+        ra, dec = event.position
+        other_ra, other_dec = other_event.position
+        distance = astropy.coordinates.angular_separation(ra, dec, other_ra, other_dec)
+        if distance < tolerance_position:
+            return True
+        return False
+        # # Use HEALPix to find all events within tolerance_position.
+        # # We assume that is the same HEALPix index or one of its neighbours.
+        # # So select all events with the same index or a neighbour index.
 
-        self.cur.execute(
-            f"SELECT * FROM {self.event_table} WHERE "
-            f"healpix_index IN ({','.join(['?'] * len(neighbour_indices))})",
-            neighbour_indices,
-        )
-        return self.cur.fetchall()
+        # neighbour_indices = ah.neighbours(
+        #     event.healpix_index, nside=self.healpix_nside
+        # )
+        # neighbour_indices.append(event.healpix_index)
+
+        # self.cur.execute(
+        #     f"SELECT * FROM {self.event_table} WHERE "
+        #     f"healpix_index IN ({','.join(['?'] * len(neighbour_indices))})",
+        #     neighbour_indices,
+        # )
+        # return self.cur.fetchall()
 
     def is_near_in_time(self, event, tolerance_time=10 * u.minute):
         self.cur.execute(
